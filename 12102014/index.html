@@ -1,0 +1,607 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+<meta http-equiv="cache-control" content="max-age=0" />
+<meta http-equiv="cache-control" content="no-cache" />
+<meta http-equiv="expires" content="0" />
+<meta http-equiv="expires" content="Tue, 01 Jan 1980 1:00:00 GMT" />
+<meta http-equiv="pragma" content="no-cache" />
+<title>Editor 1.0</title>
+
+<link href="easyui.css" type="text/css" rel="stylesheet" />
+<link href="main.css" type="text/css" rel="stylesheet"/>
+<link rel="stylesheet" type="text/css" href="icon.css">
+<link rel="stylesheet" type="text/css" href="jqueryFileTree.css">
+
+<script type="text/javascript" src="JLIB/psuedoInverse.js"></script>
+<script type="text/javascript" src="jquery-1.11.1.min.js"></script>
+<script type="text/javascript" src="jquery-easyui.js"></script>
+<script src="ace-builds/src-min-noconflict/ace.js" type="text/javascript" charset="utf-8"></script>
+<script type="text/javascript" src="attrchange.js"></script>
+<script type="text/javascript" src="jqueryFileTree-3.js"></script>
+<script type="text/javascript" src="editor1_0.js"></script>
+<script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/stacktrace.js/0.6.4/stacktrace.min.js"></script>
+
+
+</head>
+<body style="background-color: #2F3129;">
+<div id="ultimateWrapper">
+	
+    
+    <div id="topMenu">
+        <a class="easyui-menubutton" menu="#mm1">File</a>
+        <a class="easyui-menubutton" menu="#mm2">Edit</a>
+        <a class="easyui-menubutton" menu="#mm3">Find</a>
+        <a class="easyui-menubutton" menu="#mm4">Run</a>
+    </div>
+
+            <div id="mm1">
+                <div id="newTab" data-options="iconCls:'icon-add'">New Tab</div>
+                <div id="saveAs" data-options="iconCls:'icon-save'">Save</div>
+                <div id="uploadButton">Upload</div>
+            </div>
+                <div id="uploadBox" style="display:none;width:300px;height:100px; background-color:#FFF; border:#999 thin solid;">
+                    <form action="upload.php" method="post" enctype="multipart/form-data">
+                        Select image to upload:
+                        <input type="file" name="fileToUpload" id="fileToUpload">
+                        <input type="submit" value="Upload Image" name="submit">
+                    </form>
+                </div>
+<script>
+	$("#uploadButton").click(function(e){
+		e.preventDefault();
+		$("#uploadBox").bPopup();
+	})
+</script>
+           
+            <div id="mm2">
+                <div data-options="iconCls:'icon-undo'">Undo</div>
+                <div data-options="iconCls:'icon-redo'">Redo</div>
+            </div>
+            <div id="mm3">
+                <div>Find 1</div>
+                <div>Find 2</div>
+            </div>
+            <div id="mm4">
+                <div id="run" data-options="iconCls:'icon-run'">Run</div>
+                <div id="run-selection" data-options="iconCls:'icon-run-selected'">Run selection</div>
+            </div>
+
+<div id="editorWrap"> 
+
+    <div class="easyui-layout" data-options="fit:true">
+    	<!-- I can still have some divs collapsed-->
+        <div id="fileSystem"  data-options="region:'west', split:true,title:'File',minWidth:100,tools:[
+				{
+					iconCls:'icon-reload',
+					handler:function(){reloadFileSystem();}
+				}]">
+        </div>
+      <div id="contextMenu" class="easyui-menu" style="width:50px;border:#CCC thin solid;">
+      		<div data-options="iconCls:'icon-add'">
+            	<span id="contextMenu-New" >New</span>
+                <div style="width:50px;border:#CCC thin solid;">
+                    <div id="contextMenu-new-file" data-options="iconCls:'icon-new-file'">New File</div>
+                    <div id="contextMenu-new-folder" data-options="iconCls:'icon-new-folder'">New folder</div>
+                </div>
+            </div>
+            <div id="contextMenu-Open" data-options="iconCls:'icon-open'">Load</div>
+            <!--the following two lines are two hidden holders for image loading-->
+                <div id="imageHolder" style="display:none;">imageHolder</div>
+                <div id="canvasHolder" style="display:none;">CanvasHolder</div>
+                <script>
+					$("#contextMenu-Open").click(function(){
+						var extension = jqueryFileTreeSelectedURL.split('.').pop(); // get the file extention
+						if(extension == 'js'){
+							require(jqueryFileTreeSelectedURL);
+						}else{
+						imload(jqueryFileTreeSelectedURL);
+						}
+					});
+				</script>
+                
+            <div id="contextMenu-Delete"data-options="iconCls:'icon-clear'">Delete</div>
+        </div>
+        
+      <div id="editorWrap2" data-options="region:'center',split:true" style="background-color: #272822;">
+            <div id="centerWrapper" class="easyui-layout" data-options="fit:true" style="width:100%;height:100%;">
+                <div id="script"  data-options="region:'center',title:'Script',split:true,tools:[
+				{
+					iconCls:'icon-save',
+					handler:function(){save();}
+				}]" style="width:40%;height:70%;">
+                       <div id="tab-wrapper" class="easyui-tabs">
+                        <!--<div id="editor" title="main" style="width:100%;height:100%;"></div>-->
+                    </div>
+                </div>
+                
+                <div id="output" data-options="region:'east',title:'Output',split:true" style="background-color: #272822;width:60%;height:70%;">
+                    <div id="tab-wrapper2" class="easyui-tabs">
+                            <div id="defaultOutput" title="welcome" style="width:100%;height:100%x;">
+                            	<iframe scrolling="auto" frameborder="0"  src="http://carvisualizer.plus360degrees.com/threejs/" style="width:100%;height:100%;"></iframe>
+                            </div>                            
+                    </div>
+                </div>
+                
+                <div id="console" data-options="region:'south',split:true,collapsible:false,title:'Console',tools:[
+				{
+					iconCls:'icon-reload',
+					handler:function(){emptyConsole();}
+				}]" style="height:30%;">
+                	<div id="consoleOutput" style="width:100%;height:100%;"></div>
+                </div>
+           </div>
+       </div>
+    </div>    
+
+</div>
+<script>
+//load fileSystem tree (using jquery File Tree)
+	var jqueryFileTreeSelectedURL = '../test/';
+	var editorPool = []; // contain all the ace editor variables
+	$(document).ready( function() {
+		$('#fileSystem').fileTree({
+			root: '../test/',
+			script: 'jqueryFileTree.php',
+		}, function(file) {
+			jqueryFileTreelogURL(file);
+		});
+		$('#fileSystem').bind('contextmenu',function(e){
+			$('#contextMenu').menu('show', {
+				left: e.pageX,
+				top: e.pageY
+			});
+			return false;
+		});
+		
+	});   
+	function jqueryFileTreelogURL(file) {
+		jqueryFileTreeSelectedURL = file; 
+	}
+	
+///////////////////////////////////////////////////////////////////////////////
+// Resizing the window based on viewport size	
+	$(window).load(function(e) { //upon page loading
+		var viewportWidth = $(window).width();
+		var viewportHeight = $(window).height();
+		var adjustedHeight = viewportHeight;// have to change the offset function to 26;
+		var styles={
+			width: viewportWidth,
+			height:adjustedHeight
+			};
+		
+		$('#editorWrap').css(styles);
+		$('#tab-wrapper').tabs({fit:true}); // essential for editor tab region to resize
+		$('#tab-wrapper2').tabs({fit:true}); // essential for output tab region to resize   
+		
+	});
+	$(window).resize(function(e) { //upon resizing event
+	var viewportWidth = $(window).width();
+		var viewportHeight = $(window).height();
+		var adjustedHeight = viewportHeight - $('#editorWrap').offset().top;
+		
+		var styles={
+			width: viewportWidth,
+			height:adjustedHeight
+			};
+		
+		$('#editorWrap').css(styles);
+		
+	});
+	
+/////////////////////////////////////////////////////////////////////////////
+//loading editors	
+	var consoleOutput = ace.edit("consoleOutput"); // the console editor
+		consoleOutput.setTheme("ace/theme/monokai");
+		consoleOutput.getSession().setMode("ace/mode/javascript");
+		//consoleOutput.setReadOnly(true);
+		consoleOutput.setOptions({
+			readOnly: true,
+			//highlightActiveLine: false,
+			highlightGutterLine: false,
+			showLineNumbers:false
+			//behavioursEnabled: false
+		})
+		//consoleOutput.renderer.$cursorLayer.element.style.opacity=0
+	$(window).load(function(e){
+		var url = "../test/main.js";
+		$.get(url,function(data){ //jquery get data from file url
+				var urlName = url.replace(/\//g,'');
+				urlName = urlName.replace(/\./g,'');
+				addTab(url)
+				var sideEditorID = 'sideEditor'+urlName;
+				
+				var tempCode = 'variable'+sideEditorID+'=ace.edit(sideEditorID);' //make it global, this is essential for attrchange
+				eval(tempCode)
+				
+				var tempCode1='variable'+sideEditorID+'.setTheme("ace/theme/monokai");';
+				var tempCode2='variable'+sideEditorID+'.getSession().setMode("ace/mode/javascript")';
+				var tempCode3='variable'+sideEditorID+'.getSession().setValue(data,1)';
+				var tempCode4='editorPool.push(variable'+sideEditorID+')';
+				
+				eval(tempCode1)
+				eval(tempCode2)
+				eval(tempCode3)
+				eval(tempCode4)
+				
+					},'html');
+		$("#tab-wrapper").tabs({
+		onBeforeClose: function(title){
+										return confirm('Are you sure you want to close ' + title);
+									  }
+		})
+		
+		
+	})
+	
+	
+	$('#run').click(function(){
+		
+		var selectedTab = $('#tab-wrapper').tabs('getSelected');
+		var url = selectedTab.panel('options').title;
+		var urlName = url.replace(/\//g,'');
+		urlName = urlName.replace(/\./g,'');
+		
+		var tempCode = 'var code = variablesideEditor'+urlName+'.getSession().getValue();';
+		eval(tempCode);
+		
+		code_printToConsole(code); // log the code to console
+		
+			 
+		 try{
+			 //eval(code);
+			 jQuery.globalEval(code);
+		 }catch(e){
+			 var trace = printStackTrace({e: e});
+			 var n_trace = trace[0].length;
+			 var pos=[]; //position of the last two ':' in trace[0]
+			 for(var i=n_trace-1;i>=0;i--){
+				 if(trace[0][i] == ':'){
+					 pos.push(i);
+				 } 
+			 }
+			
+			 var columnNumber = trace[0].slice(pos[0]+1,n_trace)
+			
+			 //columnNumber=columnNumber.join();
+			 var lineNumber = trace[0].slice(pos[1]+1,pos[0]);
+			 //lineNumber=columnNumber.join();
+			 
+			 //consoleOutput.setValue(e.message + '\nStack trace:\n' + trace.join('\n'));
+			 //consoleOutput.setValue("at line "+e.lineNumber+": "+e.message);
+			 //var error = '<pre><font color=red>error: '+e.message+'\nStack trace:\n' + trace.join('\n')+'</font></pre>';
+			 //var error = '<pre><font color=red>error: '+e.message+'\nStack trace:\n' + trace[0][112]+'</font></pre>';
+			 //var error = '<pre>Line:'+lineNumber+', Column:'+columnNumber+', <font color=red>error: '+e.message+'.</font></pre>';
+			 //$("#consoleOutput").append(error);
+			 var error = '\nerror at Line '+lineNumber+' Column '+columnNumber+', error " '+e.message+'";';
+			 //$("#consoleOutput").append(error);
+			 error_printToConsole(error);
+		 }
+	 
+	})
+	$("#run-selection").click(function(){
+		var selectedTab = $('#tab-wrapper').tabs('getSelected');
+		var url = selectedTab.panel('options').title;
+		var urlName = url.replace(/\//g,'');
+		urlName = urlName.replace(/\./g,'');
+		var selectedTabIndex = $('#tab-wrapper').tabs('getTabIndex',selectedTab); 
+		
+		var tempCode = 'var code = variablesideEditor'+urlName+'.getCopyText();'; //get selected range;
+		eval(tempCode);
+		code_printToConsole(code); // log the code to console
+			 
+		 try{
+			 //eval(code);
+			 jQuery.globalEval(code);
+		 }catch(e){
+			 var trace = printStackTrace({e: e});
+			 var n_trace = trace[0].length;
+			 var pos=[]; //position of the last two ':' in trace[0]
+			 for(var i=n_trace-1;i>=0;i--){
+				 if(trace[0][i] == ':'){
+					 pos.push(i);
+				 } 
+			 }
+			
+			 var columnNumber = trace[0].slice(pos[0]+1,n_trace)
+			 
+			 //columnNumber=columnNumber.join();
+			 var lineNumber = trace[0].slice(pos[1]+1,pos[0]);
+			 //lineNumber=columnNumber.join();
+			 //consoleOutput.setValue(e.message + '\nStack trace:\n' + trace.join('\n'));
+			 //consoleOutput.setValue("at line "+e.lineNumber+": "+e.message);
+			 //var error = '<pre><font color=red>error: '+e.message+'\nStack trace:\n' + trace.join('\n')+'</font></pre>';
+			 //var error = '<pre><font color=red>error: '+e.message+'\nStack trace:\n' + trace[0][112]+'</font></pre>';
+			 //var error = '<pre>Line:'+lineNumber+', Column:'+columnNumber+', <font color=red>error: '+e.message+'.</font></pre>';
+			 var error = '\nerror{ Line:'+lineNumber+', Column:'+columnNumber+', error: '+e.message+'.}\n';
+			 //$("#consoleOutput").append(error);
+			 printToConsole(error);
+		 }
+	})
+	$('#newTab').click(function(){
+		var fileName = prompt('Filename','');
+		var url = '../test/'+fileName+'.js';
+		var urlName = url.replace(/\//g,'');
+		urlName = urlName.replace(/\./g,'');
+		//urlName = urlName.replace(/\*/g,'');
+		
+		addTab(url)
+		var sideEditorID = 'sideEditor'+urlName;
+		
+		var tempCode = 'variable'+sideEditorID+'=ace.edit(sideEditorID);' //make it global, this is essential for attrchange
+		eval(tempCode)
+		
+		var tempCode1='variable'+sideEditorID+'.setTheme("ace/theme/monokai");';
+		var tempCode2='variable'+sideEditorID+'.getSession().setMode("ace/mode/javascript");';
+		//var tempCode3='variable'+sideEditorID+'.getSession().setValue("");';
+		var tempCode3='editorPool.push(variable'+sideEditorID+');';
+		
+		//var tempCode4='variable'+sideEditorID+'.on("change",function(e){var tab=getTabOut(url);updateTabOnChange(tab,url);})';
+		//var tempCode4='variable'+sideEditorID+'.on("change",function(e){var tab=getTabOut(url);tab.panel("setTitle",url+"*");})';
+		/*
+		$("#tab-wrapper").tabs({
+			onBeforeClose: function(title){
+											return confirm('Are you sure you want to close ' + title);
+										  }
+		})
+		*/
+		eval(tempCode1)
+		eval(tempCode2)
+		
+		eval(tempCode3)
+		
+	})
+	function addTab(url){
+		var urlName = url.replace(/\//g,'');
+		urlName = urlName.replace(/\./g,'');
+		//console.log(tabNumber);
+		var content ='<div id="sideEditor'+urlName+'" style="width:100%;height:100%;"></div>' // different id for different tabs
+		$('#tab-wrapper').tabs('add',{
+			title:url,
+			content:content,
+			closable:true
+		});
+	}
+	function getTabOut(url){ // short version of get tab;
+		var tab = $("#tab-wrapper").tabs('getTab',url);
+		return tab;
+	}
+	function updateTabOnChange(tab,url){
+		//console.log(tab);
+		var urlName = url.replace(/\//g,'');
+		urlName = urlName.replace(/\./g,'');
+		//console.log(tabNumber);
+		//var content ='<div id="sideEditor'+urlName+'" style="width:100%;height:100%;"></div>' // different id for different tabs
+		$("#tab-wrapper").tabs('update',{
+			tab: tab,
+			options: {
+				title: url+'*',
+				//content:content,
+				//closable:true
+			}
+		})
+		tab.panel('refresh');
+	}
+	$('#script').attrchange({
+	  trackValue : true,
+	  callback: function (e) {
+	 
+		  var n=editorPool.length;
+		  
+		  if(n>0){
+			  for(var i=0;i<n;i++){
+				  var tempCode='editorPool[i].resize();';
+				  eval(tempCode)
+				  
+			  }
+		  }
+	   }
+	});
+	$('#console').attrchange({
+	  trackValue : true,
+	  callback: function (e) {
+		   //var width = $('#tt').width();
+		   //var height = $('#tt').height();
+		  consoleOutput.resize();
+	   }
+	});
+	$('#saveAs').click(function(){
+		save();
+	})
+	function save(){
+		var selectedTab = $('#tab-wrapper').tabs('getSelected');
+		var url = selectedTab.panel('options').title;
+		var urlName = url.replace(/\//g,'');
+		urlName = urlName.replace(/\./g,'');
+		
+		var tempCode = 'var textToSave = variablesideEditor'+urlName+'.getSession().getValue();';
+		eval(tempCode);
+		
+		$.ajax({ //post varible from javascript to php using ajax
+		type: "POST",
+		url: "saveAs.php",
+		data: { nameOfFile:url,
+				value : textToSave },
+		//dataType: "json",
+		success: function(data) {
+		   // Log data into console for reference (and checking, perhaps)
+		   //console.log(data);
+		   reloadFileSystem();
+		   //saveAs_filetreeAdd(Filename);
+
+		   // Parse data here
+			}
+		});
+	}
+	function emptyConsole(){
+		//$("#consoleOutput").empty();
+		consoleOutput.getSession().setValue('',1);
+	}
+	$('#contextMenu-new-file').click(function(){
+		var fileName = prompt('Filename','');
+		var dir = jqueryFileTreeSelectedURL.substring(0, jqueryFileTreeSelectedURL.lastIndexOf('/'))+'/';
+		var fullname = dir +fileName +'.js';
+		
+		if(fileName != null){
+		$.ajax({ //post varible from javascript to php using ajax
+					type: "POST",
+					url: "newFile-filetree.php",
+					data: { 
+							//filePath:jqueryFileTreeSelectedURL,
+							name:fullname
+							 },
+					//dataType: "json",
+					success: function(data) {
+					   // Log data into console for reference (and checking, perhaps)
+					   //console.log(data);
+					   reloadFileSystem();
+			
+					   // Parse data here
+					}
+					});
+		}else{
+			alert('Filename cannot be empty');
+		}
+		
+	})
+	$('#contextMenu-new-folder').click(function(){
+		var folderName = prompt('Foldername','');
+		var dir = jqueryFileTreeSelectedURL.substring(0, jqueryFileTreeSelectedURL.lastIndexOf('/'))+'/';
+		var fullname = dir +folderName +'/';
+		
+		if(folderName != null){
+		$.ajax({ //post varible from javascript to php using ajax
+					type: "POST",
+					url: "newFolder-filetree.php",
+					data: { 
+							//filePath:jqueryFileTreeSelectedURL,
+							name:fullname
+							 },
+					//dataType: "json",
+					success: function(data) {
+					   // Log data into console for reference (and checking, perhaps)
+					   //console.log(data);
+					   reloadFileSystem();
+			
+					   // Parse data here
+					}
+					});
+		}else{
+			alert('Foldername cannot be empty');
+		}
+		
+	})
+	
+	function reloadFileSystem(){
+		$('#fileSystem').fileTree({
+					root: '../test/',
+					script: 'jqueryFileTree.php',
+					expandSpeed: 1000,
+					collapseSpeed: 100,
+					multiFolder: true
+				}, function(file) {
+					jqueryFileTreelogURL(file);
+				});
+	}
+	$('#fileSystem').dblclick(function(e) {
+		//alert('double clicked')
+		var lastchar = jqueryFileTreeSelectedURL.slice(-1);
+		if(lastchar != '/'){
+			
+			// check if tab exist
+			var url = jqueryFileTreeSelectedURL;
+			var urlName = url.replace(/\//g,'');
+			urlName = urlName.replace(/\./g,'');
+			var sideEditorID = 'sideEditor'+urlName;
+			
+			var tempTab = $("#tab-wrapper").tabs('getTab',url);
+			
+			if(tempTab != null){
+					//var tempTabIndex = $("#tab-wrapper").tabs('getTabIndex',tempTab);
+					$("#tab-wrapper").tabs('select',url);
+			}else{
+			$.get(jqueryFileTreeSelectedURL,function(data){ //jquery get data from file url
+				addTab(url)
+				var tempCode = 'variable'+sideEditorID+'=ace.edit(sideEditorID);' //make it global, this is essential for attrchange
+				
+				eval(tempCode)
+				
+				var tempCode1='variable'+sideEditorID+'.setTheme("ace/theme/monokai");';
+				var tempCode2='variable'+sideEditorID+'.getSession().setMode("ace/mode/javascript")';
+				var tempCode3='variable'+sideEditorID+'.getSession().setValue(data,0)';
+				var tempCode4='editorPool.push(variable'+sideEditorID+')';
+				
+				eval(tempCode1)
+				eval(tempCode2)
+				eval(tempCode3)
+				eval(tempCode4)
+				
+					},'html');}
+		$("#tab-wrapper").tabs({
+			onBeforeClose: function(title){
+											return confirm('Are you sure you want to close ' + title);
+										  }
+		})
+					
+				}else{
+					alert('cannot open a folder');
+				}
+	})
+	$('#contextMenu-Delete').click(function(){
+		if(jqueryFileTreeSelectedURL != false){
+			var message = 'Are you sure to delete "'+jqueryFileTreeSelectedURL+'"?';
+			var answer = confirm(message)
+			if(answer){
+			$.ajax({ //post varible from javascript to php using ajax
+					type: "POST",
+					url: "deleteFile.php",
+					data: { 
+							filePath:jqueryFileTreeSelectedURL
+							 },
+					//dataType: "json",
+					success: function(data) {
+					   // Log data into console for reference (and checking, perhaps)
+					   //console.log(data);
+					   reloadFileSystem();
+			
+					   // Parse data here
+					}
+					});
+			}else{
+				return false
+			}
+		}
+		return false;
+		
+	})
+	// for printing text to console
+	function error_printToConsole(text){
+		text = text + '\n';
+		var currentLine = consoleOutput.getSession().getLength();
+		consoleOutput.gotoLine(currentLine,0,false);
+		consoleOutput.insert(text);// insert at cursor;
+		
+		consoleOutput.getSession().addGutterDecoration(currentLine,'error_message');
+	}
+	function code_printToConsole(text){
+		text = '\n'+text + '\n';
+		var currentLine = consoleOutput.getSession().getLength();
+		consoleOutput.gotoLine(currentLine,0,false);
+		consoleOutput.insert(text);// insert at cursor;
+		
+		consoleOutput.getSession().addGutterDecoration(currentLine,'code_message');
+	}
+	function status_printToConsole(text){
+		text = text + '\n';
+		var currentLine = consoleOutput.getSession().getLength();
+		consoleOutput.gotoLine(currentLine,0,false);
+		consoleOutput.insert(text);// insert at cursor;
+		
+		consoleOutput.getSession().addGutterDecoration(currentLine,'status_message');
+	}
+	
+	</script>
+</div>
+</body>
+</html>

@@ -1,0 +1,55 @@
+@charset "utf-8";
+/* CSS Document */
+*{
+	/*font-size:13px; // use this will mess up the space in editor*/
+}
+body{
+    -webkit-touch-callout: none;
+    -webkit-user-select: none;
+    -khtml-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
+    user-select: none;
+	/*overflow:hidden;*/
+}
+#ultimateWrapper{
+	position:absolute;
+	top:0;
+	left:0;
+	width:100%;
+	height:100%;
+}
+#topMenu{
+	background-color:#000;
+}
+#editorWrap{
+	/*position:absolute;*/
+	top:26px;
+	width:100%;
+	height:100%;
+	
+}
+.ace_editor div {
+    font: inherit!important;
+}
+#fileSystem{
+	background-color: #272822;
+	width:15%;
+	min-width:10%;
+}
+
+.error_message {
+	background-image:url(images/arrow-44-256.png) !important ;
+	background-repeat: no-repeat;
+	background-position: 2px center;
+}
+.code_message {
+	background-image:url(images/arrow-code.png) !important ;
+	background-repeat: no-repeat;
+	background-position: 2px center;
+}
+.status_message {
+	background-image:url(images/arrow-status.png) !important ;
+	background-repeat: no-repeat;
+	background-position: 2px center;
+}
